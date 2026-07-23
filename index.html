@@ -1008,7 +1008,7 @@
         const deptTravelRate = deptTravelQuota ? deptTravelSpent / deptTravelQuota : 0;
         const deptCarRate = deptCarQuota ? deptCarSpent / deptCarQuota : 0;
         const deptTotalRate = deptFixed ? deptSpent / deptFixed : 0;
-        const deptActive = new Set(rows.flatMap((row) => row.activeIds)).size;
+        const deptHeadcount = Number(budgetData.departmentHeadcount?.[dept] || 0);
         const deptExceptions = new Set(rows.flatMap((row) => row.exceptionIds)).size;
         let evaluation = "合理";
         let action = "当前额度执行正常，维持监控；结合业务结果判断费用投入质量。";
@@ -1020,7 +1020,7 @@
           action = "额度使用接近上限，提前安排后续出行节奏并设置预警。";
         }
         const deptAllSpent = sum(allSelectedExpenseRecords.filter((record) => record.dept === dept));
-        return { dept, deptActive, deptAllSpent, deptSpent, deptFixed, deptTotalRate, deptTravelSpent, deptTravelQuota, deptTravelRate, deptCarSpent, deptCarQuota, deptCarRate, evaluation, action };
+        return { dept, deptHeadcount, deptAllSpent, deptSpent, deptFixed, deptTotalRate, deptTravelSpent, deptTravelQuota, deptTravelRate, deptCarSpent, deptCarQuota, deptCarRate, evaluation, action };
       }).sort((a, b) => (a.evaluation === "待复核" ? -1 : 1) - (b.evaluation === "待复核" ? -1 : 1) || b.deptAllSpent - a.deptAllSpent);
 
       const focusDept = departments.find((row) => row.evaluation === "待复核");
@@ -1036,14 +1036,14 @@
       ).join("");
       const evaluationClass = (value) => value === "合理" ? "good" : value === "关注" ? "watch" : "review";
       const departmentRows = departments.map((row) =>
-        "<tr><td>" + row.dept + "</td><td>" + row.deptActive + "</td><td>" + budgetMoney(row.deptAllSpent) + "</td><td>" + budgetMoney(row.deptSpent) + "</td><td>" + budgetMoney(row.deptFixed) +
+        "<tr><td>" + row.dept + "</td><td>" + row.deptHeadcount + "</td><td>" + budgetMoney(row.deptAllSpent) + "</td><td>" + budgetMoney(row.deptSpent) + "</td><td>" + budgetMoney(row.deptFixed) +
         "</td><td>" + pct(row.deptTotalRate * 100) + "</td><td>" + budgetMoney(row.deptTravelSpent) + "</td><td>" + budgetMoney(row.deptTravelQuota) +
         "</td><td>" + pct(row.deptTravelRate * 100) + "</td><td>" + budgetMoney(row.deptCarSpent) + "</td><td>" + budgetMoney(row.deptCarQuota) +
         "</td><td>" + pct(row.deptCarRate * 100) + '</td><td><span class="evaluation ' + evaluationClass(row.evaluation) + '">' + row.evaluation +
         "</span></td><td>" + row.action + "</td></tr>"
       ).join("");
       document.getElementById("budget-departments").innerHTML =
-        '<table><thead><tr><th><span class="th-main">部门</span></th><th><span class="th-main">本期发生消费人数</span><span class="th-sub">按所选月份去重</span></th><th><span class="th-main">部门总费用</span><span class="th-sub">差旅＋用车＋餐饮</span></th><th><span class="th-main">额度口径实际</span><span class="th-sub">差旅＋用车，不含餐饮</span></th><th><span class="th-main">固定额度合计</span><span class="th-sub">差旅固定额度＋用车固定额度</span></th><th><span class="th-main">总使用率</span><span class="th-sub">额度口径实际÷固定额度合计</span></th><th><span class="th-main">差旅实际</span><span class="th-sub">酒店＋国内机票＋火车</span></th><th><span class="th-main">差旅固定额度</span></th><th><span class="th-main">差旅使用率</span></th><th><span class="th-main">用车实际</span><span class="th-sub">打车</span></th><th><span class="th-main">用车固定额度</span></th><th><span class="th-main">用车使用率</span></th><th><span class="th-main">评价</span></th><th><span class="th-main">建议动作</span></th></tr></thead><tbody>' +
+        '<table><thead><tr><th><span class="th-main">部门</span></th><th><span class="th-main">部门人数</span><span class="th-sub">额度底表人员名单去重</span></th><th><span class="th-main">部门总费用</span><span class="th-sub">差旅＋用车＋餐饮</span></th><th><span class="th-main">额度口径实际</span><span class="th-sub">差旅＋用车，不含餐饮</span></th><th><span class="th-main">固定额度合计</span><span class="th-sub">差旅固定额度＋用车固定额度</span></th><th><span class="th-main">总使用率</span><span class="th-sub">额度口径实际÷固定额度合计</span></th><th><span class="th-main">差旅实际</span><span class="th-sub">酒店＋国内机票＋火车</span></th><th><span class="th-main">差旅固定额度</span></th><th><span class="th-main">差旅使用率</span></th><th><span class="th-main">用车实际</span><span class="th-sub">打车</span></th><th><span class="th-main">用车固定额度</span></th><th><span class="th-main">用车使用率</span></th><th><span class="th-main">评价</span></th><th><span class="th-main">建议动作</span></th></tr></thead><tbody>' +
         departmentRows + "</tbody></table>";
     }
     async function initBudget() {
