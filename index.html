@@ -988,7 +988,7 @@
         { label: "用车｜固定额度", value: budgetMoney(carQuota), note: "5月、6月按二季度额度÷3", tone: "" },
         { label: "用车｜使用率", value: pct(carRate * 100), note: "用车实际 ÷ 用车固定额度", tone: tone(carRate) },
         { label: "用车｜剩余额度", value: budgetMoney(carQuota - carSpent), note: "用车固定额度减用车实际", tone: "" },
-        { label: "餐饮｜实际消费", value: budgetMoney(mealSpent), note: "目前无固定额度，单独观察，不纳入差旅＋用车使用率；本期发生消费人数 " + activePeople + " 人", tone: "meal" },
+        { label: "餐饮｜实际消费", value: budgetMoney(mealSpent), note: "目前无固定额度，单独观察，不纳入差旅＋用车使用率", tone: "meal" },
       ];
       document.getElementById("budget-kpis").innerHTML = cards.map((card) =>
         '<div class="budget-kpi ' + card.tone + '"><span>' + card.label + '</span><strong>' + card.value + '</strong><small>' + card.note + '</small></div>'
