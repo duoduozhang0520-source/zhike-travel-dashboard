@@ -249,6 +249,14 @@
     .budget-decision { background: #fff8e7; border: 1px solid #f0ddad; border-radius: 8px; padding: 12px 14px; color: #70531c; line-height: 1.75; margin-bottom: 14px; }
     .budget-table td.status-over { color: var(--red); font-weight: 700; }
     .budget-table td.status-noquota { color: var(--gold); font-weight: 700; }
+    .management-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 18px; }
+    .management-action { border: 1px solid var(--line); border-radius: 8px; padding: 14px; background: #fbfcfd; }
+    .management-action b { display: block; margin-bottom: 7px; font-size: 14px; }
+    .management-action p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.7; }
+    .evaluation { display: inline-block; border-radius: 99px; padding: 3px 8px; font-size: 12px; font-weight: 700; }
+    .evaluation.good { color: var(--green); background: #eaf7ef; }
+    .evaluation.watch { color: #946200; background: #fff4d6; }
+    .evaluation.review { color: #9f3a34; background: #fdeeed; }
     .empty-state { padding: 18px; text-align: center; color: var(--muted); background: #f8fafc; border-radius: 8px; }
     @media (max-width: 1200px) {
       .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -257,6 +265,7 @@
       .summary-grid, .profile-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .lever-grid, .rhythm-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .insights { grid-template-columns: 1fr; }
+      .management-actions { grid-template-columns: 1fr; }
     }
     @media (max-width: 680px) {
       .hero { padding: 28px 18px 38px; }
@@ -351,6 +360,14 @@
       </div>
       <div class="budget-kpis" id="budget-kpis"></div>
       <div class="budget-decision" id="budget-decision">正在读取固定额度分析…</div>
+      <div class="panel-head">
+        <div><h2>整体管控动作</h2><div class="hint">把额度和异常结果转化为可执行的管理安排。</div></div>
+      </div>
+      <div class="management-actions" id="budget-actions"></div>
+      <div class="panel-head">
+        <div><h2>部门评价与建议</h2><div class="hint">评价用于确定复盘优先级，不直接将费用高或超额等同于不合理。</div></div>
+      </div>
+      <div class="matrix budget-table" id="budget-departments"></div>
       <div>
         <div class="panel-head">
           <div><h2>超额与配置异常明细</h2><div class="hint">仅展示需要管理核实的对象；“未配置但有消费”可能来自入离职、岗位无需配置或漏配。</div></div>
@@ -758,7 +775,7 @@
         { title: "成本高度集中", text: "所选区间净差旅费 " + wan(total) + " 万，前三部门为" + top3.map((row) => row.dept).join("、") + "，合计占比 " + pct(top3Share) + "，费用明显集中在一线业务动作。" },
         { title: "费用结构以住宿与交通为主", text: "费用结构前三为" + topTypeText + "，管理重点应放在住宿标准、跨城交通、出行频次，而不是只看零散用车或单笔小额。" },
         { title: "峰值月份需要业务复盘", text: "峰值月是" + peak.month + "，净金额 " + wan(peak.value) + " 万；需结合当月渠道拜访、AI课堂交付、客户成功维护或政企会议安排复盘。" },
-        { title: "管理重点聚焦高关注部门", text: "关注级别用于确定复盘优先级。当前重点为" + controlText + "；后续补充人员额度后，再看额度使用率、人均消耗和超额风险。" },
+        { title: "管理重点聚焦高关注部门", text: "关注级别用于确定复盘优先级。当前重点为" + controlText + "；结合固定额度执行模块进一步查看部门使用率、异常人员和对应管理动作。" },
       ];
       document.getElementById("briefing-lines").innerHTML = lines.map((line) =>
         '<li><div><b>' + line.title + '</b><span>' + line.text + '</span></div></li>'
@@ -972,6 +989,39 @@
         "<b>管理判断：</b>已配置固定额度人员中，" + item.withinPeople + "人在额度内，" + item.overPeople + "人超额；" +
         (item.noQuotaSpendPeople ? item.noQuotaSpendPeople + "人属于“未配置但有消费”，需要核实入离职、岗位无需配置或额度漏配。" : "没有发现“未配置但有消费”。") +
         " " + stageNote;
+      const focusDept = item.departments.find((row) => row.evaluation === "待复核");
+      const higherType = item.travelUtilization >= item.carUtilization ? "差旅" : "用车";
+      const higherRate = Math.max(item.travelUtilization, item.carUtilization);
+      const actionCards = [
+        {
+          title: "先处理异常，再讨论额度",
+          text: item.exceptions.length
+            ? "当前有 " + item.exceptions.length + " 名分项异常人员，先由" + (focusDept ? focusDept.dept : "相关部门") + "确认业务必要性、入离职和额度配置，再决定是否调整额度。"
+            : "当前未发现分项超额或配置异常，保持月度监控，不需要简单压降。"
+        },
+        {
+          title: "关注" + higherType + "费用节奏",
+          text: higherType + "使用率相对较高（" + pct(higherRate * 100) + "）。结合出行频次、路线、提前预订和驻留天数判断是否存在可优化空间。"
+        },
+        {
+          title: "形成部门复盘闭环",
+          text: "部门负责人按“异常原因—业务结果—是否调整额度—下周期动作”反馈；连续合理超额再调整固定额度，行为问题优先优化出行方式。"
+        },
+      ];
+      document.getElementById("budget-actions").innerHTML = actionCards.map((row) =>
+        '<div class="management-action"><b>' + row.title + '</b><p>' + row.text + '</p></div>'
+      ).join("");
+      const evaluationClass = (value) => value === "合理" ? "good" : value === "关注" ? "watch" : "review";
+      const departmentRows = item.departments.map((row) =>
+        "<tr><td>" + row.dept + "</td><td>" + row.people + "</td><td>" + budgetMoney(row.fixedTotal) + "</td><td>" + budgetMoney(row.spentTotal) +
+        "</td><td>" + budgetMoney(row.travelQuota) + "</td><td>" + budgetMoney(row.travelSpent) + "</td><td>" + pct(row.travelRate * 100) +
+        "</td><td>" + budgetMoney(row.carQuota) + "</td><td>" + budgetMoney(row.carSpent) + "</td><td>" + pct(row.carRate * 100) +
+        '</td><td><span class="evaluation ' + evaluationClass(row.evaluation) + '">' + row.evaluation + "</span></td><td>" + row.exceptionPeople +
+        "</td><td>" + row.action + "</td></tr>"
+      ).join("");
+      document.getElementById("budget-departments").innerHTML =
+        '<table><thead><tr><th>部门</th><th>配置人数</th><th>总固定额度</th><th>实际消费</th><th>差旅额度</th><th>差旅实际</th><th>差旅使用率</th><th>用车额度</th><th>用车实际</th><th>用车使用率</th><th>评价</th><th>异常人数</th><th>建议动作</th></tr></thead><tbody>' +
+        departmentRows + "</tbody></table>";
       const rows = item.exceptions.map((row) =>
         "<tr><td>" + row.name + "</td><td>" + row.dept + "</td><td>" + budgetMoney(row.travelQuota) + "</td><td>" + budgetMoney(row.travelSpent) +
         "</td><td>" + (row.travelQuota ? pct(row.travelSpent / row.travelQuota * 100) : "—") + "</td><td>" + budgetMoney(row.carQuota) +
