@@ -235,8 +235,24 @@
     .insight b { display: block; font-size: 15px; margin-bottom: 8px; }
     .insight p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.7; }
     .foot { color: var(--muted); font-size: 12px; line-height: 1.7; padding-top: 10px; }
+    .budget-panel { border-left: 5px solid var(--gold); }
+    .budget-head-actions { display: flex; gap: 10px; align-items: center; }
+    .budget-select { border: 1px solid var(--line); border-radius: 6px; background: #fff; color: var(--ink); padding: 8px 10px; font: inherit; }
+    .budget-kpis { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; margin-bottom: 14px; }
+    .budget-kpi { border: 1px solid var(--line); border-top: 4px solid var(--brand); border-radius: 8px; padding: 14px; background: #fff; min-height: 106px; }
+    .budget-kpi.good { border-top-color: var(--green); }
+    .budget-kpi.warn { border-top-color: var(--gold); }
+    .budget-kpi.bad { border-top-color: var(--red); }
+    .budget-kpi span { display: block; color: var(--muted); font-size: 12px; margin-bottom: 8px; }
+    .budget-kpi strong { display: block; font-size: 22px; line-height: 1.2; }
+    .budget-kpi small { display: block; color: var(--muted); margin-top: 7px; line-height: 1.45; }
+    .budget-decision { background: #fff8e7; border: 1px solid #f0ddad; border-radius: 8px; padding: 12px 14px; color: #70531c; line-height: 1.75; margin-bottom: 14px; }
+    .budget-table td.status-over { color: var(--red); font-weight: 700; }
+    .budget-table td.status-noquota { color: var(--gold); font-weight: 700; }
+    .empty-state { padding: 18px; text-align: center; color: var(--muted); background: #f8fafc; border-radius: 8px; }
     @media (max-width: 1200px) {
       .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .budget-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
       .grid, .grid.equal { grid-template-columns: 1fr; }
       .summary-grid, .profile-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .lever-grid, .rhythm-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -249,6 +265,8 @@
       .badge { white-space: normal; }
       .main { padding: 0 14px 24px; }
       .kpis { grid-template-columns: 1fr; }
+      .budget-kpis { grid-template-columns: 1fr 1fr; }
+      .budget-head-actions { align-items: stretch; flex-direction: column; width: 100%; }
       .summary-grid, .profile-grid { grid-template-columns: 1fr; }
       .lever-grid, .rhythm-grid { grid-template-columns: 1fr; }
       .bar-row { grid-template-columns: 86px minmax(90px,1fr) 76px; }
@@ -318,6 +336,27 @@
       <div class="kpi"><div class="label">订单明细数</div><div class="value" id="kpi-orders"></div><div class="note">按底表明细行统计，订单状态不筛选</div></div>
       <div class="kpi"><div class="label">前三部门占比</div><div class="value" id="kpi-top3"></div><div class="note" id="kpi-top3-note"></div></div>
       <div class="kpi"><div class="label">所选区间峰值月</div><div class="value" id="kpi-peak"></div><div class="note" id="kpi-peak-note"></div></div>
+    </section>
+
+    <section class="panel budget-panel">
+      <div class="panel-head">
+        <div>
+          <h2>固定额度执行与管理判断</h2>
+          <div class="hint">实际消费对比固定额度；空白或0视为未配置，不与正常超额混算。额外增加额度暂不纳入大部门看板。</div>
+        </div>
+        <div class="budget-head-actions">
+          <label class="hint" for="budget-period">额度周期</label>
+          <select class="budget-select" id="budget-period"></select>
+        </div>
+      </div>
+      <div class="budget-kpis" id="budget-kpis"></div>
+      <div class="budget-decision" id="budget-decision">正在读取固定额度分析…</div>
+      <div>
+        <div class="panel-head">
+          <div><h2>超额与配置异常明细</h2><div class="hint">仅展示需要管理核实的对象；“未配置但有消费”可能来自入离职、岗位无需配置或漏配。</div></div>
+        </div>
+        <div class="matrix budget-table" id="budget-exceptions"></div>
+      </div>
     </section>
 
     <section class="panel">
@@ -897,9 +936,56 @@
       document.getElementById("dept-legend").innerHTML = mainDept.map((item) => '<span><i class="dot" style="background:' + item.color + '"></i>' + item.name + '</span>').join("");
       svgLineChart("dept-line-chart", mainDept, false);
 
-      document.getElementById("insight-1").textContent = "补充个人差旅额度后，增加额度使用率、超额风险、部门人均消耗和个人异常提醒。";
+      document.getElementById("insight-1").textContent = "当前已接入固定额度，先看额度覆盖、额度内人数、超额人数与配置异常；额外增加额度留到部门看板进一步复盘。";
       document.getElementById("insight-2").textContent = "补充城市、路线、间夜和均价后，识别高频城市、高成本路线、住宿标准和跨区出行效率。";
       document.getElementById("insight-3").textContent = "渠道、AI课堂业务、客户成功部后续可与拜访、交付、客户维护和项目产出做费用产出匹配。";
+    }
+
+    let budgetData = null;
+    function budgetMoney(value) {
+      return "¥" + new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 0 }).format(value || 0);
+    }
+    function renderBudget(periodName) {
+      if (!budgetData) return;
+      const item = budgetData.periods.find((row) => row.period === periodName) || budgetData.periods[budgetData.periods.length - 1];
+      const cards = [
+        { label: "固定额度总额", value: budgetMoney(item.fixedTotal), note: item.configuredPeople + "人已配置", tone: "" },
+        { label: "额度使用率", value: pct(item.utilization * 100), note: item.label, tone: item.utilization > 0.8 ? "bad" : item.utilization > 0.667 ? "warn" : "good" },
+        { label: "额度内人数", value: item.withinPeople + "人", note: "占已配置人员 " + pct(item.withinRate * 100), tone: "good" },
+        { label: "超额人数", value: item.overPeople + "人", note: "超额 " + budgetMoney(item.overAmount), tone: item.overPeople ? "bad" : "good" },
+        { label: "未配置但有消费", value: item.noQuotaSpendPeople + "人", note: "单列核实，不计入正常超额率", tone: item.noQuotaSpendPeople ? "warn" : "good" },
+        { label: "固定额度剩余", value: budgetMoney(item.fixedTotal - item.spentTotal), note: "固定额度减额度口径实际消费", tone: "" },
+      ];
+      document.getElementById("budget-kpis").innerHTML = cards.map((card) =>
+        '<div class="budget-kpi ' + card.tone + '"><span>' + card.label + '</span><strong>' + card.value + '</strong><small>' + card.note + '</small></div>'
+      ).join("");
+      const stageNote = item.period === "5-7月" ? "当前7月尚未结束，按5-6月已发生消费观察季度进度，不作季度最终结论。" : "该月额度为历史配置口径，结论用于识别明显异常，不将空白或0简单视为超额。";
+      document.getElementById("budget-decision").innerHTML =
+        "<b>管理判断：</b>已配置固定额度人员中，" + item.withinPeople + "人在额度内，" + item.overPeople + "人超额；" +
+        (item.noQuotaSpendPeople ? item.noQuotaSpendPeople + "人属于“未配置但有消费”，需要核实入离职、岗位无需配置或额度漏配。" : "没有发现“未配置但有消费”。") +
+        " " + stageNote;
+      const rows = item.exceptions.map((row) =>
+        "<tr><td>" + row.name + "</td><td>" + row.dept + "</td><td>" + budgetMoney(row.fixed) + "</td><td>" + budgetMoney(row.spent) +
+        "</td><td>" + budgetMoney(row.variance) + "</td><td>" + (row.rate == null ? "—" : pct(row.rate * 100)) +
+        '</td><td class="' + (row.status === "超额" ? "status-over" : "status-noquota") + '">' + row.status + "</td><td>" +
+        (row.status === "超额" ? "复核业务必要性；若连续发生，再评估固定额度是否偏低。" : "核实入离职、岗位属性或是否漏配额度。") + "</td></tr>"
+      ).join("");
+      document.getElementById("budget-exceptions").innerHTML = rows
+        ? '<table><thead><tr><th>人员</th><th>部门</th><th>固定额度</th><th>实际消费</th><th>超出金额</th><th>使用率</th><th>状态</th><th>建议动作</th></tr></thead><tbody>' + rows + "</tbody></table>"
+        : '<div class="empty-state">本周期暂未发现固定额度超额或“未配置但有消费”。</div>';
+    }
+    async function initBudget() {
+      try {
+        const response = await fetch("./budget-data.json", { cache: "no-store" });
+        budgetData = await response.json();
+        const select = document.getElementById("budget-period");
+        select.innerHTML = budgetData.periods.map((row) => '<option value="' + row.period + '">' + row.label + "</option>").join("");
+        select.value = "5-7月";
+        select.addEventListener("change", () => renderBudget(select.value));
+        renderBudget(select.value);
+      } catch (error) {
+        document.getElementById("budget-decision").textContent = "固定额度数据暂未加载，请刷新页面后重试。";
+      }
     }
 
     document.getElementById("month-trigger").addEventListener("click", (event) => {
@@ -917,6 +1003,7 @@
     document.getElementById("select-latest").addEventListener("click", () => { selectedMonths = new Set(["5月", "6月"]); render(); });
     window.addEventListener("resize", render);
     render();
+    initBudget();
   </script>
 </body>
 </html>
