@@ -243,6 +243,7 @@
     .budget-kpi.good { border-top-color: var(--green); }
     .budget-kpi.warn { border-top-color: var(--gold); }
     .budget-kpi.bad { border-top-color: var(--red); }
+    .budget-kpi.meal { grid-column: 1 / -1; border-top-color: #b7791f; }
     .budget-kpi span { display: block; color: var(--muted); font-size: 12px; margin-bottom: 8px; }
     .budget-kpi strong { display: block; font-size: 22px; line-height: 1.2; }
     .budget-kpi small { display: block; color: var(--muted); margin-top: 7px; line-height: 1.45; }
@@ -964,6 +965,9 @@
       const travelQuota = sumField("travelQuota"), travelSpent = sumField("travelSpent");
       const carQuota = sumField("carQuota"), carSpent = sumField("carSpent");
       const fixedTotal = travelQuota + carQuota, spentTotal = travelSpent + carSpent;
+      const allSelectedExpenseRecords = selectedRecords();
+      const allSpentTotal = sum(allSelectedExpenseRecords);
+      const mealSpent = sum(allSelectedExpenseRecords.filter((record) => record.type === "餐饮"));
       const travelRate = travelQuota ? travelSpent / travelQuota : 0;
       const carRate = carQuota ? carSpent / carQuota : 0;
       const totalRate = fixedTotal ? spentTotal / fixedTotal : 0;
@@ -972,10 +976,10 @@
       const selectedLabel = selected.join("、");
       const tone = (rate) => rate > 1 ? "bad" : rate > 0.8 ? "warn" : "good";
       const cards = [
+        { label: "整体｜全品类总费用", value: budgetMoney(allSpentTotal), note: "差旅＋用车＋餐饮", tone: "" },
         { label: "整体｜额度口径实际", value: budgetMoney(spentTotal), note: "差旅＋用车，不含餐饮", tone: "" },
         { label: "整体｜固定额度合计", value: budgetMoney(fixedTotal), note: "差旅固定额度＋用车固定额度", tone: "" },
         { label: "整体｜使用率", value: pct(totalRate * 100), note: selectedLabel, tone: tone(totalRate) },
-        { label: "整体｜本期发生消费人数", value: activePeople + "人", note: "按所选月份去重", tone: "" },
         { label: "差旅｜实际消费", value: budgetMoney(travelSpent), note: "酒店＋国内机票＋火车", tone: "" },
         { label: "差旅｜固定额度", value: budgetMoney(travelQuota), note: "5月、6月按二季度额度÷3", tone: "" },
         { label: "差旅｜使用率", value: pct(travelRate * 100), note: "差旅实际 ÷ 差旅固定额度", tone: tone(travelRate) },
@@ -984,16 +988,17 @@
         { label: "用车｜固定额度", value: budgetMoney(carQuota), note: "5月、6月按二季度额度÷3", tone: "" },
         { label: "用车｜使用率", value: pct(carRate * 100), note: "用车实际 ÷ 用车固定额度", tone: tone(carRate) },
         { label: "用车｜剩余额度", value: budgetMoney(carQuota - carSpent), note: "用车固定额度减用车实际", tone: "" },
+        { label: "餐饮｜实际消费", value: budgetMoney(mealSpent), note: "目前无固定额度，单独观察，不纳入差旅＋用车使用率；本期发生消费人数 " + activePeople + " 人", tone: "meal" },
       ];
       document.getElementById("budget-kpis").innerHTML = cards.map((card) =>
         '<div class="budget-kpi ' + card.tone + '"><span>' + card.label + '</span><strong>' + card.value + '</strong><small>' + card.note + '</small></div>'
       ).join("");
       document.getElementById("budget-decision").innerHTML =
-        "<b>管理判断：</b>所选月份整体额度使用率为 " + pct(totalRate * 100) + "，其中差旅 " + pct(travelRate * 100) +
-        "、用车 " + pct(carRate * 100) + "；共有 " + exceptionPeople + " 名人员存在分项超额或未配置但有消费，需要由相关部门核实原因。";
+        "<b>管理判断：</b>所选月份全品类总费用为 " + budgetMoney(allSpentTotal) + "，其中餐饮 " + budgetMoney(mealSpent) +
+        " 单独观察；差旅＋用车固定额度使用率为 " + pct(totalRate * 100) + "，其中差旅 " + pct(travelRate * 100) +
+        "、用车 " + pct(carRate * 100) + "。共有 " + exceptionPeople + " 名人员存在分项超额或未配置但有消费，需要由相关部门核实原因。";
 
       const deptNames = rawData.departments;
-      const allSelectedExpenseRecords = selectedRecords();
       const departments = deptNames.map((dept) => {
         const rows = selectedRows.map((monthRow) => monthRow.departments.find((row) => row.dept === dept)).filter(Boolean);
         const value = (field) => rows.reduce((total, row) => total + Number(row[field] || 0), 0);
