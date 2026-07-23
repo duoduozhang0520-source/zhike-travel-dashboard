@@ -249,6 +249,8 @@
     .budget-decision { background: #fff8e7; border: 1px solid #f0ddad; border-radius: 8px; padding: 12px 14px; color: #70531c; line-height: 1.75; margin-bottom: 14px; }
     .budget-table td.status-over { color: var(--red); font-weight: 700; }
     .budget-table td.status-noquota { color: var(--gold); font-weight: 700; }
+    .budget-table th .th-main { display: block; color: #475467; font-size: 13px; line-height: 1.35; }
+    .budget-table th .th-sub { display: block; margin-top: 4px; color: #98a2b3; font-size: 10px; line-height: 1.35; font-weight: 500; }
     .management-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 18px; }
     .management-action { border: 1px solid var(--line); border-radius: 8px; padding: 14px; background: #fbfcfd; }
     .management-action b { display: block; margin-bottom: 7px; font-size: 14px; }
@@ -970,7 +972,7 @@
       const selectedLabel = selected.join("、");
       const tone = (rate) => rate > 1 ? "bad" : rate > 0.8 ? "warn" : "good";
       const cards = [
-        { label: "整体｜实际消费", value: budgetMoney(spentTotal), note: "差旅＋用车", tone: "" },
+        { label: "整体｜额度口径实际", value: budgetMoney(spentTotal), note: "差旅＋用车，不含餐饮", tone: "" },
         { label: "整体｜固定额度合计", value: budgetMoney(fixedTotal), note: "差旅固定额度＋用车固定额度", tone: "" },
         { label: "整体｜使用率", value: pct(totalRate * 100), note: selectedLabel, tone: tone(totalRate) },
         { label: "整体｜本期发生消费人数", value: activePeople + "人", note: "按所选月份去重", tone: "" },
@@ -991,6 +993,7 @@
         "、用车 " + pct(carRate * 100) + "；共有 " + exceptionPeople + " 名人员存在分项超额或未配置但有消费，需要由相关部门核实原因。";
 
       const deptNames = rawData.departments;
+      const allSelectedExpenseRecords = selectedRecords();
       const departments = deptNames.map((dept) => {
         const rows = selectedRows.map((monthRow) => monthRow.departments.find((row) => row.dept === dept)).filter(Boolean);
         const value = (field) => rows.reduce((total, row) => total + Number(row[field] || 0), 0);
@@ -1011,8 +1014,9 @@
           evaluation = "关注";
           action = "额度使用接近上限，提前安排后续出行节奏并设置预警。";
         }
-        return { dept, deptActive, deptSpent, deptFixed, deptTotalRate, deptTravelSpent, deptTravelQuota, deptTravelRate, deptCarSpent, deptCarQuota, deptCarRate, evaluation, action };
-      }).sort((a, b) => (a.evaluation === "待复核" ? -1 : 1) - (b.evaluation === "待复核" ? -1 : 1) || b.deptSpent - a.deptSpent);
+        const deptAllSpent = sum(allSelectedExpenseRecords.filter((record) => record.dept === dept));
+        return { dept, deptActive, deptAllSpent, deptSpent, deptFixed, deptTotalRate, deptTravelSpent, deptTravelQuota, deptTravelRate, deptCarSpent, deptCarQuota, deptCarRate, evaluation, action };
+      }).sort((a, b) => (a.evaluation === "待复核" ? -1 : 1) - (b.evaluation === "待复核" ? -1 : 1) || b.deptAllSpent - a.deptAllSpent);
 
       const focusDept = departments.find((row) => row.evaluation === "待复核");
       const higherType = travelRate >= carRate ? "差旅" : "用车";
@@ -1027,14 +1031,14 @@
       ).join("");
       const evaluationClass = (value) => value === "合理" ? "good" : value === "关注" ? "watch" : "review";
       const departmentRows = departments.map((row) =>
-        "<tr><td>" + row.dept + "</td><td>" + row.deptActive + "</td><td>" + budgetMoney(row.deptSpent) + "</td><td>" + budgetMoney(row.deptFixed) +
+        "<tr><td>" + row.dept + "</td><td>" + row.deptActive + "</td><td>" + budgetMoney(row.deptAllSpent) + "</td><td>" + budgetMoney(row.deptSpent) + "</td><td>" + budgetMoney(row.deptFixed) +
         "</td><td>" + pct(row.deptTotalRate * 100) + "</td><td>" + budgetMoney(row.deptTravelSpent) + "</td><td>" + budgetMoney(row.deptTravelQuota) +
         "</td><td>" + pct(row.deptTravelRate * 100) + "</td><td>" + budgetMoney(row.deptCarSpent) + "</td><td>" + budgetMoney(row.deptCarQuota) +
         "</td><td>" + pct(row.deptCarRate * 100) + '</td><td><span class="evaluation ' + evaluationClass(row.evaluation) + '">' + row.evaluation +
         "</span></td><td>" + row.action + "</td></tr>"
       ).join("");
       document.getElementById("budget-departments").innerHTML =
-        '<table><thead><tr><th>部门</th><th>本期发生消费人数</th><th>实际消费</th><th>固定额度合计<br>（差旅＋用车）</th><th>总使用率</th><th>差旅实际<br>（酒店＋国内机票＋火车）</th><th>差旅固定额度</th><th>差旅使用率</th><th>用车实际<br>（打车）</th><th>用车固定额度</th><th>用车使用率</th><th>评价</th><th>建议动作</th></tr></thead><tbody>' +
+        '<table><thead><tr><th><span class="th-main">部门</span></th><th><span class="th-main">本期发生消费人数</span><span class="th-sub">按所选月份去重</span></th><th><span class="th-main">部门总费用</span><span class="th-sub">差旅＋用车＋餐饮</span></th><th><span class="th-main">额度口径实际</span><span class="th-sub">差旅＋用车，不含餐饮</span></th><th><span class="th-main">固定额度合计</span><span class="th-sub">差旅固定额度＋用车固定额度</span></th><th><span class="th-main">总使用率</span><span class="th-sub">额度口径实际÷固定额度合计</span></th><th><span class="th-main">差旅实际</span><span class="th-sub">酒店＋国内机票＋火车</span></th><th><span class="th-main">差旅固定额度</span></th><th><span class="th-main">差旅使用率</span></th><th><span class="th-main">用车实际</span><span class="th-sub">打车</span></th><th><span class="th-main">用车固定额度</span></th><th><span class="th-main">用车使用率</span></th><th><span class="th-main">评价</span></th><th><span class="th-main">建议动作</span></th></tr></thead><tbody>' +
         departmentRows + "</tbody></table>";
     }
     async function initBudget() {
