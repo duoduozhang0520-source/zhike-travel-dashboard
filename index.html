@@ -126,7 +126,7 @@
         ["综合剩余额度",money(s.quota-s.spent),"预警/异常 "+s.warningPeople+"人 · 超额 "+s.overPeople+"人"],
         ["配置人均费用",money(s.perHead),s.headcount+"名有额度人员"],
         ["有费用人员人均",money(s.perSpender),s.spenderCount+"名产生费用"],
-        ["明细记录数",DATA.sourceRows.toLocaleString("zh-CN")+"条","酒店、机票、火车、用车"],
+        ["明细记录数",s.sourceRows.toLocaleString("zh-CN")+"条","酒店、机票、火车、用车"],
         ["无额度消费人员",s.noQuotaPeople+"人","优先核实入转调离或额度漏配"]
       ];
       document.querySelector("#kpis").innerHTML=cards.map(c=>`<article class="kpi"><div class="label">${c[0]}</div><div class="value">${c[1]}</div><div class="note">${c[2]}</div></article>`).join("");
