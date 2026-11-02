@@ -706,7 +706,7 @@
         const ticket = deptTypeAmount(list, dept, "机票");
         return { dept, value, ticketShare: value ? ticket / value * 100 : 0, ticket };
       }).filter((row) => row.value > 0).sort((a, b) => b.ticketShare - a.ticketShare)[0];
-      const cards = [ { label: "油卡充值｜企业支付", value: budgetMoney(sum(allSelectedExpenseRecords.filter(r=>r.type==="油卡充值"))), note: "充值支出，单独列示，不纳入打车额度使用率", tone: "meal" },
+      const cards = [
         { tag: "管理结论", title: "成本集中度高", text: "前三部门为" + top3.map((row) => row.dept).join("、") + "，合计占比 " + pct(top3Share) + "，应作为费用复盘主线。" },
         { tag: "月度节奏", title: "峰值月需复盘", text: "所选区间峰值为" + peak.month + "，净金额 " + wan(peak.value) + " 万；需结合当月项目、拜访和交付安排复盘。" },
         { tag: "结构关注", title: "主费用类型明确", text: "费用前三为" + typeRows.slice(0, 3).map((row) => row.type + " " + pct(row.share)).join("，") + "，管控重点应围绕住宿、跨城交通和中短途出行。" },
@@ -976,6 +976,10 @@
       const selectedLabel = selected.join("、");
       const tone = (rate) => rate > 1 ? "bad" : rate > 0.8 ? "warn" : "good";
       const cards = [
+        { label: "油卡充值｜企业支付", value: budgetMoney(sum(allSelectedExpenseRecords.filter(r=>r.type==="油卡充值"))), note: "充值支出，单独列示，不纳入打车额度使用率", tone: "meal" },
+        { label: "油卡｜配置额度", value: selected.includes("10月") ? budgetMoney(10200) : "—", note: "10月13人，高瑞重复配置仅计一次；其他月份未提供", tone: "meal" },
+        { label: "油卡｜10月使用率", value: selected.includes("10月") ? pct(sum(rawData.records.filter(r=>r.month==="10月" && r.type==="油卡充值"))/10200*100) : "—", note: "10月充值金额÷10月油卡额度", tone: "meal" },
+        { label: "油卡｜10月剩余额度", value: selected.includes("10月") ? budgetMoney(10200-sum(rawData.records.filter(r=>r.month==="10月" && r.type==="油卡充值"))) : "—", note: "单独核算，不并入差旅或打车额度", tone: "meal" },
         { label: "整体｜全品类总费用", value: budgetMoney(allSpentTotal), note: "差旅＋用车＋餐饮＋油卡充值", tone: "" },
         { label: "整体｜额度口径实际", value: budgetMoney(spentTotal), note: "差旅＋用车，不含餐饮及油卡充值", tone: "" },
         { label: "整体｜固定额度合计", value: budgetMoney(fixedTotal), note: "差旅固定额度＋用车固定额度", tone: "" },
